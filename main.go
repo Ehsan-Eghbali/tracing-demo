@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,7 +14,12 @@ import (
 )
 
 func main() {
-	InitTracer()
+	tp := InitTracer()
+	defer func() {
+		if err := tp.Shutdown(context.Background()); err != nil {
+			log.Fatalf("Error shutting down tracer provider: %v", err)
+		}
+	}()
 
 	http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -28,7 +34,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8085", nil))
 }
 
-func InitTracer() {
+func InitTracer() *sdktrace.TracerProvider {
 	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(
 		jaeger.WithEndpoint("http://localhost:14268/api/traces"),
 	))
@@ -44,4 +50,5 @@ func InitTracer() {
 		)),
 	)
 	otel.SetTracerProvider(tp)
+	return tp
 }
